@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>{{doc_title}} {{full_number}}</title>
+  <link rel="stylesheet" href="./base.css" />
+  <style>
+    :root {
+      --page-margin-top: {{layout.margin_top}}mm;
+      --page-margin-right: {{layout.margin_right}}mm;
+      --page-margin-bottom: {{layout.margin_bottom}}mm;
+      --page-margin-left: {{layout.margin_left}}mm;
+      --font-size-base: {{layout.font_size_base}}px;
+      --font-size-h1: {{layout.title_size}}px;
+    }
+    .col-ref { width: {{table.ref}}%; }
+    .col-desc { width: {{table.desc}}%; }
+    .col-qty { width: {{table.qty}}%; }
+    .col-price { width: {{table.price}}%; }
+    .col-disc { width: {{table.disc}}%; }
+    .col-vat { width: {{table.vat}}%; }
+    .col-total { width: {{table.total}}%; }
+  </style>
+</head>
+<body>
+  <div class="document">
+    <section class="top">
+      <div class="logo-box"><img src="{{company.logo_path}}" alt="Logo" /></div>
+      <div class="title-box">
+        <h1>{{doc_title}}</h1>
+        <div class="meta-grid">
+          <div><strong>Serie/Número:</strong> {{full_number}}</div>
+          <div><strong>Fecha:</strong> {{issue_date}}</div>
+          <div><strong>Vencimiento:</strong> {{due_date}}</div>
+          <div><strong>Estado:</strong> {{status_label}}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel-grid">
+      <article class="panel">
+        <header class="panel-title">Empresa emisora</header>
+        <div class="panel-body">{{company.block}}</div>
+      </article>
+      <article class="panel">
+        <header class="panel-title">Cliente</header>
+        <div class="panel-body">{{customer.block}}</div>
+      </article>
+    </section>
+
+    <table class="lines-table">
+      <thead>
+        <tr>
+          <th class="col-ref">Ref.</th>
+          <th class="col-desc">Descripción</th>
+          <th class="col-qty text-right">Cant.</th>
+          <th class="col-price text-right">Precio</th>
+          <th class="col-disc text-right">Dto.</th>
+          <th class="col-vat text-right">IVA</th>
+          <th class="col-total text-right">Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{lines_rows}}
+      </tbody>
+    </table>
+
+    <section class="bottom-grid">
+      <article class="notes-box">
+        <header class="panel-title">Observaciones / Condiciones</header>
+        <div class="notes-content">{{notes}}</div>
+      </article>
+      <article class="totals">
+        <table>
+          <tr><td>Base imponible</td><td class="text-right">{{subtotal}}</td></tr>
+          <tr><td>Total IVA</td><td class="text-right">{{tax_total}}</td></tr>
+          <tr><td>Retención</td><td class="text-right">{{withholding_total}}</td></tr>
+          <tr><td>Total factura</td><td class="text-right">{{grand_total}}</td></tr>
+        </table>
+      </article>
+    </section>
+
+    <footer class="footer">{{footer_text}}</footer>
+  </div>
+</body>
+</html>

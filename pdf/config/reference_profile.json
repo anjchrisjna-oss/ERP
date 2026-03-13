@@ -1,0 +1,12 @@
+{
+  "found": false,
+  "models": {
+    "factura": null,
+    "albaran": null,
+    "presupuesto": null
+  },
+  "logo": null,
+  "notes": [
+    "No se encontraron modelos/logo reales en docs/modelos y assets."
+  ]
+}

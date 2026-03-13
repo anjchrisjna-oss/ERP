@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ERP Escritorio Local</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <h1>ERP</h1>
+    <nav>
+      <button data-view="dashboard">Inicio</button>
+      <button data-view="clientes">Clientes</button>
+      <button data-view="productos">Productos</button>
+    </nav>
+  </aside>
+  <main class="content">
+    <section id="dashboard" class="view active">
+      <h2>Dashboard</h2>
+      <p>Aplicación local en español conectada con SQLite.</p>
+      <p class="note">Fase 2 operativa (UI local + backend + DB).</p>
+    </section>
+
+    <section id="clientes" class="view">
+      <h2>Clientes</h2>
+      <form id="customer-form">
+        <input name="customer_code" placeholder="Código (ej. CLI001)" required />
+        <input name="legal_name" placeholder="Nombre fiscal" required />
+        <input name="email" placeholder="Email" />
+        <button type="submit">Guardar cliente</button>
+      </form>
+      <table>
+        <thead><tr><th>Código</th><th>Nombre</th><th>Email</th><th>Pendiente</th></tr></thead>
+        <tbody id="customers-body"></tbody>
+      </table>
+    </section>
+
+    <section id="productos" class="view">
+      <h2>Productos</h2>
+      <form id="product-form">
+        <input name="sku" placeholder="Referencia" required />
+        <input name="name" placeholder="Nombre" required />
+        <input name="unit" placeholder="Unidad" value="ud" required />
+        <input name="base_price" placeholder="Precio base" type="number" step="0.01" required />
+        <button type="submit">Guardar producto</button>
+      </form>
+      <table>
+        <thead><tr><th>Ref.</th><th>Nombre</th><th>Unidad</th><th>Precio</th></tr></thead>
+        <tbody id="products-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
