@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+
+# Rust
+src-tauri/target/
+
+# Local runtime
+var/
+backup/
