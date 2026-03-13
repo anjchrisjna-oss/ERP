@@ -7,6 +7,10 @@ cd "$ROOT"
 echo "== Verificación secuencial fases 1 -> 13 =="
 rm -f /tmp/erp_fase3_verify.sqlite3 /tmp/erp_fase3_flow_verify.sqlite3 /tmp/erp_fase4_verify.sqlite3
 
+# Pre-check conflictos hotspots
+echo "[Pre-check] Conflictos en archivos críticos"
+./scripts/check_conflict_hotspots.sh
+
 # Fase 1
 echo "[Fase 1] Auditoría arquitectura y materiales"
 ./scripts/phase1_audit.sh
