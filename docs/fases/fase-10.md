@@ -23,4 +23,4 @@
 - Saldo pendiente actualizado correctamente tras cobro parcial.
 
 ## Estado
-Fase 10 consistente y cerrada.
+COMPLETA en backend y persistencia (SQLite), validada con integración real.

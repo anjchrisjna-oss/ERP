@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+"""Servicio de aplicación ERP local-first sobre SQLite.
+Incluye trazabilidad documental, fiscalidad básica y cobros.
+"""
+
 import re
 import sqlite3
 from dataclasses import dataclass

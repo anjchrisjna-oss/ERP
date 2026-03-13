@@ -1,7 +1,7 @@
 # Fase 2 — Base del proyecto y arranque técnico
 
 ## Estado
-PARCIAL
+PARCIAL (resuelto funcionalmente con UI local + API; pendiente shell Tauri empaquetado)
 
 ## Qué estaba hecho
 - Núcleo de reglas de dominio en Rust validado con tests.

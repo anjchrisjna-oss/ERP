@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 echo "== Verificación secuencial fases 1 -> 13 =="
+rm -f /tmp/erp_fase3_verify.sqlite3 /tmp/erp_fase3_flow_verify.sqlite3 /tmp/erp_fase4_verify.sqlite3
 
 # Fase 1
 echo "[Fase 1] Auditoría arquitectura y materiales"

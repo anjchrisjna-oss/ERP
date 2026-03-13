@@ -30,4 +30,4 @@
 - Persistencia correcta de cambios y coherencia en listados.
 
 ## Estado
-Fase 5 consistente y cerrada.
+COMPLETA en backend y persistencia (SQLite), validada con integración real.
