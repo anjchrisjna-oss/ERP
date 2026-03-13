@@ -1,0 +1,20 @@
+{
+  "layout": {
+    "margin_top": 10,
+    "margin_right": 11,
+    "margin_bottom": 14,
+    "margin_left": 11,
+    "font_size_base": 10.8,
+    "title_size": 19
+  },
+  "table": {
+    "ref": 11,
+    "desc": 39,
+    "qty": 9,
+    "price": 13,
+    "disc": 8,
+    "vat": 8,
+    "total": 12
+  },
+  "tuning_notes": "Perfil presupuesto con sección de condiciones destacada y totales compactos."
+}
