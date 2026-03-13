@@ -6,6 +6,7 @@ Proyecto ERP local-first para ciclo comercial completo: presupuestos, pedidos, a
 
 - Fase 1: arquitectura y esquema base ✅
 - Fase 2: base técnica + UI local conectada (PARCIAL, pendiente shell Tauri completo) ⚠️
+- Fase 2: base técnica backend y estructura frontend ✅
 - Fase 3: migraciones y reglas de integridad ✅
 - Fase 4: configuración fiscal inicial (IVA/series) ✅
 - Fase 5: clientes y productos (servicio base) ✅
@@ -62,6 +63,7 @@ Verificación automática mínima:
 ```
 
 ### 5) Validar plantillas PDF
+### 4) Validar plantillas PDF
 
 ```bash
 python3 scripts/validate_pdf_templates.py
@@ -136,3 +138,5 @@ Salida esperada:
 - `dist/windows/erp_local_win.zip`
 
 > Nota: el instalador nativo Windows (MSI/NSIS) requiere toolchain objetivo Windows y red para descargar targets/dependencias.
+- El frontend React+Tauri está estructurado pero pendiente de bootstrap con registry npm/mirror disponible.
+- El núcleo de reglas de negocio y trazabilidad documental ya está implementado y validado con pruebas reales sobre SQLite.
