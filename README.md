@@ -138,5 +138,31 @@ Salida esperada:
 - `dist/windows/erp_local_win.zip`
 
 > Nota: el instalador nativo Windows (MSI/NSIS) requiere toolchain objetivo Windows y red para descargar targets/dependencias.
+
+
+## Arranque con un clic (PC)
+
+- Linux/macOS: doble clic o terminal en `./iniciar_erp.sh`
+- Windows: doble clic en `iniciar_erp.bat`
+
+Parámetros opcionales:
+- Puerto: `iniciar_erp.bat 8765` o `./iniciar_erp.sh 8765`
+- Ruta DB: `iniciar_erp.bat 8765 var\erp.sqlite3`
+
+## Comprobación de modelos y logo de referencia
+
+Comandos de verificación:
+
+```bash
+find docs/modelos -maxdepth 2 -type f
+find assets -maxdepth 2 -type f
+rg -n "docs/modelos|assets/logo" .
+```
+
+En esta copia actual no existen carpetas `docs/modelos` ni `assets`; el sistema queda preparado para detectarlos automáticamente con:
+
+```bash
+python3 scripts/prepare_pdf_reference_profile.py
+```
 - El frontend React+Tauri está estructurado pero pendiente de bootstrap con registry npm/mirror disponible.
 - El núcleo de reglas de negocio y trazabilidad documental ya está implementado y validado con pruebas reales sobre SQLite.
