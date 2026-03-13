@@ -10,6 +10,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable, Any
+from typing import Iterable
 
 
 @dataclass
@@ -165,6 +166,14 @@ class ERPService:
     # ------------------------
     # Fase 5: Productos
     # ------------------------
+        now = datetime.utcnow().isoformat()
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO customers(customer_code, legal_name, tax_id, email, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?)",
+                (payload.customer_code, payload.legal_name, payload.tax_id, payload.email, now, now),
+            )
+            return int(cur.lastrowid)
+
     def create_product(self, payload: ProductInput) -> int:
         if payload.base_price < 0:
             raise ValueError("base_price no puede ser negativo")
@@ -235,12 +244,21 @@ class ERPService:
     # ------------------------
     # Fases 6-10: flujo documental
     # ------------------------
+        now = datetime.utcnow().isoformat()
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO products(sku, name, unit, base_price, default_vat_rate_id, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?)",
+                (payload.sku, payload.name, payload.unit, payload.base_price, payload.default_vat_rate_id, now, now),
+            )
+            return int(cur.lastrowid)
+
     def create_quote(self, customer_id: int, issue_date: str, lines: Iterable[LineInput], valid_until: str | None = None) -> int:
         lines = list(lines)
         if not lines:
             raise ValueError("Un presupuesto requiere al menos una línea")
 
         now = self._now()
+        now = datetime.utcnow().isoformat()
         with self._conn() as conn:
             series_id, number, full_number = self._next_series_number(conn, "quote")
             subtotal = 0.0
@@ -274,6 +292,10 @@ class ERPService:
 
     def convert_quote_to_order(self, quote_id: int, issue_date: str) -> int:
         now = self._now()
+            return quote_id
+
+    def convert_quote_to_order(self, quote_id: int, issue_date: str) -> int:
+        now = datetime.utcnow().isoformat()
         with self._conn() as conn:
             quote = conn.execute("SELECT customer_id, subtotal, tax_total, total FROM quotes WHERE id = ?", (quote_id,)).fetchone()
             if not quote:
@@ -300,6 +322,10 @@ class ERPService:
 
     def create_delivery_note_from_order(self, order_id: int, issue_date: str, served_quantities: dict[int, float]) -> int:
         now = self._now()
+            return order_id
+
+    def create_delivery_note_from_order(self, order_id: int, issue_date: str, served_quantities: dict[int, float]) -> int:
+        now = datetime.utcnow().isoformat()
         with self._conn() as conn:
             order = conn.execute("SELECT customer_id FROM orders WHERE id = ?", (order_id,)).fetchone()
             if not order:
@@ -316,6 +342,9 @@ class ERPService:
             inserted_lines = 0
             for row in lines:
                 line_id, line_no, product_id, desc, qty, served, unit_price = row
+            lines = conn.execute("SELECT id, line_no, product_id, description, quantity, served_quantity FROM order_lines WHERE order_id = ?", (order_id,)).fetchall()
+            for row in lines:
+                line_id, line_no, product_id, desc, qty, served = row
                 serve_now = float(served_quantities.get(line_id, 0.0))
                 if serve_now <= 0:
                     continue
@@ -344,6 +373,12 @@ class ERPService:
 
     def create_invoice_from_delivery_note(self, delivery_note_id: int, issue_date: str, due_date: str) -> int:
         now = self._now()
+
+            conn.execute("INSERT INTO document_relations(source_doc_type, source_doc_id, target_doc_type, target_doc_id, relation_type, created_at) VALUES('order', ?, 'delivery_note', ?, 'fulfillment', ?)", (order_id, delivery_id, now))
+            return delivery_id
+
+    def create_invoice_from_delivery_note(self, delivery_note_id: int, issue_date: str, due_date: str) -> int:
+        now = datetime.utcnow().isoformat()
         with self._conn() as conn:
             dn = conn.execute("SELECT customer_id, order_id FROM delivery_notes WHERE id = ?", (delivery_note_id,)).fetchone()
             if not dn:
@@ -403,6 +438,10 @@ class ERPService:
     # ------------------------
     def register_payment(self, customer_id: int, payment_date: str, amount: float, payment_method_id: int, invoice_id: int, due_date_id: int) -> int:
         now = self._now()
+            return invoice_id
+
+    def register_payment(self, customer_id: int, payment_date: str, amount: float, payment_method_id: int, invoice_id: int, due_date_id: int) -> int:
+        now = datetime.utcnow().isoformat()
         with self._conn() as conn:
             cur = conn.execute(
                 "INSERT INTO payments(customer_id, payment_date, amount, payment_method_id, created_at) VALUES(?, ?, ?, ?, ?)",
@@ -442,6 +481,8 @@ class ERPService:
             result["overdue"] = [dict(r) for r in overdue_rows]
             result["paid"] = [dict(r) for r in paid_rows]
             return result
+
+            return payment_id
 
     def pending_amount_by_customer(self, customer_id: int) -> float:
         with self._conn() as conn:
