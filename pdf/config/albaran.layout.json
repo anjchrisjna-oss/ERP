@@ -1,0 +1,17 @@
+{
+  "layout": {
+    "margin_top": 9,
+    "margin_right": 10,
+    "margin_bottom": 14,
+    "margin_left": 10,
+    "font_size_base": 10.5,
+    "title_size": 18
+  },
+  "table": {
+    "ref": 14,
+    "desc": 58,
+    "qty": 14,
+    "unit": 14
+  },
+  "tuning_notes": "Perfil albarán con foco en legibilidad de descripción y zona de firma amplia."
+}
