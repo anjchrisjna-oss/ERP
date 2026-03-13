@@ -5,6 +5,7 @@ Proyecto ERP local-first para ciclo comercial completo: presupuestos, pedidos, a
 ## Estado actual por fases
 
 - Fase 1: arquitectura y esquema base ✅
+- Fase 2: base técnica + UI local conectada (PARCIAL, pendiente shell Tauri completo) ⚠️
 - Fase 2: base técnica backend y estructura frontend ✅
 - Fase 3: migraciones y reglas de integridad ✅
 - Fase 4: configuración fiscal inicial (IVA/series) ✅
@@ -47,6 +48,21 @@ python3 scripts/test_phase6_7_quotes_orders.py
 python3 scripts/test_phase8_10_delivery_invoice_payment.py
 ```
 
+### 4) Arrancar interfaz local (UI en español + API + SQLite)
+
+```bash
+./scripts/run_local_erp.sh ./var/erp.sqlite3 8765
+```
+
+Abrir en navegador local: `http://127.0.0.1:8765`
+
+Verificación automática mínima:
+
+```bash
+./scripts/test_phase2_local_ui_api.sh
+```
+
+### 5) Validar plantillas PDF
 ### 4) Validar plantillas PDF
 
 ```bash
@@ -106,5 +122,8 @@ cp ./backup/erp_YYYY-MM-DD_HHMMSS.sqlite3 ./var/erp.sqlite3
 
 ## Notas
 
+- Existe una UI local usable en español (`desktop_ui/*`) conectada a backend+SQLite.
+- Queda pendiente empaquetar/validar esa UI dentro de shell Tauri completo en este entorno.
+- El núcleo de reglas de negocio y trazabilidad documental está implementado y validado con pruebas reales sobre SQLite.
 - El frontend React+Tauri está estructurado pero pendiente de bootstrap con registry npm/mirror disponible.
 - El núcleo de reglas de negocio y trazabilidad documental ya está implementado y validado con pruebas reales sobre SQLite.

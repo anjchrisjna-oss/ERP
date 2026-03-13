@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+"""Servicio de aplicación ERP local-first sobre SQLite.
+Incluye trazabilidad documental, fiscalidad básica y cobros.
+"""
+
 import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Iterable, Any
 from typing import Iterable
 
 
@@ -42,11 +47,21 @@ class ERPService:
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
         conn.execute("PRAGMA foreign_keys=ON;")
+        conn.row_factory = sqlite3.Row
         return conn
 
     @staticmethod
     def _round2(value: float) -> float:
         return round(value + 1e-9, 2)
+
+    def _now(self) -> str:
+        return datetime.utcnow().isoformat()
+
+    def _log(self, conn: sqlite3.Connection, entity_type: str, entity_id: int, action: str, payload: str | None = None) -> None:
+        conn.execute(
+            "INSERT INTO audit_logs(entity_type, entity_id, action, payload, created_at) VALUES(?, ?, ?, ?, ?)",
+            (entity_type, entity_id, action, payload, self._now()),
+        )
 
     def _next_series_number(self, conn: sqlite3.Connection, doc_type: str) -> tuple[int, int, str]:
         row = conn.execute(
@@ -60,12 +75,97 @@ class ERPService:
         conn.execute("UPDATE document_series SET next_number = next_number + 1 WHERE id = ?", (series_id,))
         return series_id, next_number, full_number
 
+    # ------------------------
+    # Fase 5: Clientes
+    # ------------------------
     def create_customer(self, payload: CustomerInput) -> int:
         if not re.fullmatch(r"[A-Z0-9_-]{3,20}", payload.customer_code):
             raise ValueError("customer_code inválido")
         if payload.email and "@" not in payload.email:
             raise ValueError("email inválido")
 
+        now = self._now()
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO customers(customer_code, legal_name, tax_id, email, active, created_at, updated_at) VALUES(?, ?, ?, ?, 1, ?, ?)",
+                (payload.customer_code, payload.legal_name, payload.tax_id, payload.email, now, now),
+            )
+            customer_id = int(cur.lastrowid)
+            self._log(conn, "customer", customer_id, "create", payload.customer_code)
+            return customer_id
+
+    def update_customer(self, customer_id: int, **fields: Any) -> None:
+        allowed = {
+            "legal_name",
+            "trade_name",
+            "tax_id",
+            "address",
+            "postal_code",
+            "city",
+            "province",
+            "country",
+            "phone",
+            "email",
+            "contact_person",
+            "notes",
+            "default_payment_method_id",
+            "default_due_days",
+            "bank_account",
+        }
+        if not fields:
+            return
+        unknown = set(fields.keys()) - allowed
+        if unknown:
+            raise ValueError(f"Campos no permitidos: {', '.join(sorted(unknown))}")
+        if "email" in fields and fields["email"] and "@" not in str(fields["email"]):
+            raise ValueError("email inválido")
+
+        pairs = [f"{k} = ?" for k in fields.keys()]
+        values = list(fields.values()) + [self._now(), customer_id]
+        with self._conn() as conn:
+            cur = conn.execute(
+                f"UPDATE customers SET {', '.join(pairs)}, updated_at = ? WHERE id = ? AND active = 1",
+                values,
+            )
+            if cur.rowcount == 0:
+                raise ValueError("Cliente no encontrado o inactivo")
+            self._log(conn, "customer", customer_id, "update", ",".join(fields.keys()))
+
+    def delete_customer(self, customer_id: int) -> None:
+        with self._conn() as conn:
+            cur = conn.execute("UPDATE customers SET active = 0, updated_at = ? WHERE id = ? AND active = 1", (self._now(), customer_id))
+            if cur.rowcount == 0:
+                raise ValueError("Cliente no encontrado o ya inactivo")
+            self._log(conn, "customer", customer_id, "soft_delete")
+
+    def list_customers(self, include_inactive: bool = False) -> list[dict[str, Any]]:
+        active_filter = "" if include_inactive else "WHERE c.active = 1"
+        with self._conn() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT
+                  c.id,
+                  c.customer_code,
+                  c.legal_name,
+                  c.city,
+                  c.tax_id,
+                  c.email,
+                  c.active,
+                  COALESCE((SELECT COUNT(*) FROM quotes q WHERE q.customer_id = c.id), 0) as quotes_count,
+                  COALESCE((SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id), 0) as orders_count,
+                  COALESCE((SELECT COUNT(*) FROM delivery_notes d WHERE d.customer_id = c.id), 0) as delivery_notes_count,
+                  COALESCE((SELECT COUNT(*) FROM invoices i WHERE i.customer_id = c.id), 0) as invoices_count,
+                  COALESCE((SELECT SUM(i.amount_due) FROM invoices i WHERE i.customer_id = c.id AND i.status IN ('pending_payment','partially_paid','overdue')), 0) as pending_amount
+                FROM customers c
+                {active_filter}
+                ORDER BY c.customer_code
+                """
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    # ------------------------
+    # Fase 5: Productos
+    # ------------------------
         now = datetime.utcnow().isoformat()
         with self._conn() as conn:
             cur = conn.execute(
@@ -80,6 +180,70 @@ class ERPService:
         if not payload.unit.strip():
             raise ValueError("unit es obligatorio")
 
+        now = self._now()
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO products(sku, name, unit, base_price, default_vat_rate_id, active, created_at, updated_at) VALUES(?, ?, ?, ?, ?, 1, ?, ?)",
+                (payload.sku, payload.name, payload.unit, payload.base_price, payload.default_vat_rate_id, now, now),
+            )
+            product_id = int(cur.lastrowid)
+            self._log(conn, "product", product_id, "create", payload.sku)
+            return product_id
+
+    def update_product(self, product_id: int, **fields: Any) -> None:
+        allowed = {"name", "description", "unit", "base_price", "default_vat_rate_id", "default_discount_pct", "notes"}
+        if not fields:
+            return
+        unknown = set(fields.keys()) - allowed
+        if unknown:
+            raise ValueError(f"Campos no permitidos: {', '.join(sorted(unknown))}")
+        if "base_price" in fields and float(fields["base_price"]) < 0:
+            raise ValueError("base_price no puede ser negativo")
+
+        pairs = [f"{k} = ?" for k in fields.keys()]
+        values = list(fields.values()) + [self._now(), product_id]
+        with self._conn() as conn:
+            cur = conn.execute(
+                f"UPDATE products SET {', '.join(pairs)}, updated_at = ? WHERE id = ? AND active = 1",
+                values,
+            )
+            if cur.rowcount == 0:
+                raise ValueError("Producto no encontrado o inactivo")
+            self._log(conn, "product", product_id, "update", ",".join(fields.keys()))
+
+    def delete_product(self, product_id: int) -> None:
+        with self._conn() as conn:
+            cur = conn.execute("UPDATE products SET active = 0, updated_at = ? WHERE id = ? AND active = 1", (self._now(), product_id))
+            if cur.rowcount == 0:
+                raise ValueError("Producto no encontrado o ya inactivo")
+            self._log(conn, "product", product_id, "soft_delete")
+
+    def list_products(self, include_inactive: bool = False, search: str | None = None) -> list[dict[str, Any]]:
+        conditions = []
+        params: list[Any] = []
+        if not include_inactive:
+            conditions.append("p.active = 1")
+        if search:
+            conditions.append("(p.sku LIKE ? OR p.name LIKE ? OR COALESCE(p.description, '') LIKE ?)")
+            term = f"%{search}%"
+            params.extend([term, term, term])
+
+        where_sql = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        with self._conn() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT p.id, p.sku, p.name, p.description, p.unit, p.base_price, p.default_vat_rate_id, p.active
+                FROM products p
+                {where_sql}
+                ORDER BY p.sku
+                """,
+                params,
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    # ------------------------
+    # Fases 6-10: flujo documental
+    # ------------------------
         now = datetime.utcnow().isoformat()
         with self._conn() as conn:
             cur = conn.execute(
@@ -93,6 +257,7 @@ class ERPService:
         if not lines:
             raise ValueError("Un presupuesto requiere al menos una línea")
 
+        now = self._now()
         now = datetime.utcnow().isoformat()
         with self._conn() as conn:
             series_id, number, full_number = self._next_series_number(conn, "quote")
@@ -122,6 +287,11 @@ class ERPService:
                     "INSERT INTO quote_lines(quote_id, line_no, product_id, description, quantity, unit_price, discount_pct, vat_rate, tax_base, tax_amount, line_total, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (quote_id, line_no, line.product_id, line.description, line.quantity, line.unit_price, line.discount_pct, line.vat_rate, base, tax_amount, line_total, now),
                 )
+            self._log(conn, "quote", quote_id, "create", full_number)
+            return quote_id
+
+    def convert_quote_to_order(self, quote_id: int, issue_date: str) -> int:
+        now = self._now()
             return quote_id
 
     def convert_quote_to_order(self, quote_id: int, issue_date: str) -> int:
@@ -147,6 +317,11 @@ class ERPService:
 
             conn.execute("UPDATE quotes SET status = 'accepted', updated_at = ? WHERE id = ?", (now, quote_id))
             conn.execute("INSERT INTO document_relations(source_doc_type, source_doc_id, target_doc_type, target_doc_id, relation_type, created_at) VALUES('quote', ?, 'order', ?, 'conversion', ?)", (quote_id, order_id, now))
+            self._log(conn, "order", order_id, "create_from_quote", str(quote_id))
+            return order_id
+
+    def create_delivery_note_from_order(self, order_id: int, issue_date: str, served_quantities: dict[int, float]) -> int:
+        now = self._now()
             return order_id
 
     def create_delivery_note_from_order(self, order_id: int, issue_date: str, served_quantities: dict[int, float]) -> int:
@@ -163,6 +338,10 @@ class ERPService:
             )
             delivery_id = int(cur.lastrowid)
 
+            lines = conn.execute("SELECT id, line_no, product_id, description, quantity, served_quantity, unit_price FROM order_lines WHERE order_id = ?", (order_id,)).fetchall()
+            inserted_lines = 0
+            for row in lines:
+                line_id, line_no, product_id, desc, qty, served, unit_price = row
             lines = conn.execute("SELECT id, line_no, product_id, description, quantity, served_quantity FROM order_lines WHERE order_id = ?", (order_id,)).fetchall()
             for row in lines:
                 line_id, line_no, product_id, desc, qty, served = row
@@ -177,6 +356,23 @@ class ERPService:
                     (delivery_id, line_no, line_id, product_id, desc, serve_now, now),
                 )
                 conn.execute("UPDATE order_lines SET served_quantity = served_quantity + ? WHERE id = ?", (serve_now, line_id))
+                inserted_lines += 1
+
+            if inserted_lines == 0:
+                raise ValueError("No se han indicado cantidades a servir")
+
+            pending = conn.execute("SELECT COUNT(*) FROM order_lines WHERE order_id = ? AND served_quantity < quantity", (order_id,)).fetchone()[0]
+            order_status = "partially_served" if pending > 0 else "fully_served"
+            dn_status = "partial" if pending > 0 else "delivered"
+            conn.execute("UPDATE orders SET status = ?, updated_at = ? WHERE id = ?", (order_status, now, order_id))
+            conn.execute("UPDATE delivery_notes SET status = ?, updated_at = ? WHERE id = ?", (dn_status, now, delivery_id))
+
+            conn.execute("INSERT INTO document_relations(source_doc_type, source_doc_id, target_doc_type, target_doc_id, relation_type, created_at) VALUES('order', ?, 'delivery_note', ?, 'fulfillment', ?)", (order_id, delivery_id, now))
+            self._log(conn, "delivery_note", delivery_id, "create_from_order", str(order_id))
+            return delivery_id
+
+    def create_invoice_from_delivery_note(self, delivery_note_id: int, issue_date: str, due_date: str) -> int:
+        now = self._now()
 
             conn.execute("INSERT INTO document_relations(source_doc_type, source_doc_id, target_doc_type, target_doc_id, relation_type, created_at) VALUES('order', ?, 'delivery_note', ?, 'fulfillment', ?)", (order_id, delivery_id, now))
             return delivery_id
@@ -234,6 +430,14 @@ class ERPService:
 
             conn.execute("INSERT INTO invoice_due_dates(invoice_id, due_date, amount, amount_paid, status, created_at, updated_at) VALUES(?, ?, ?, 0, 'pending', ?, ?)", (invoice_id, due_date, grand_total, now, now))
             conn.execute("INSERT INTO document_relations(source_doc_type, source_doc_id, target_doc_type, target_doc_id, relation_type, created_at) VALUES('delivery_note', ?, 'invoice', ?, 'billing', ?)", (delivery_note_id, invoice_id, now))
+            self._log(conn, "invoice", invoice_id, "create_from_delivery_note", str(delivery_note_id))
+            return invoice_id
+
+    # ------------------------
+    # Fase 10: Cobros y vencimientos
+    # ------------------------
+    def register_payment(self, customer_id: int, payment_date: str, amount: float, payment_method_id: int, invoice_id: int, due_date_id: int) -> int:
+        now = self._now()
             return invoice_id
 
     def register_payment(self, customer_id: int, payment_date: str, amount: float, payment_method_id: int, invoice_id: int, due_date_id: int) -> int:
@@ -251,6 +455,33 @@ class ERPService:
 
             conn.execute("UPDATE invoice_due_dates SET amount_paid = amount_paid + ?, status = CASE WHEN amount_paid + ? >= amount THEN 'paid' ELSE 'partial' END, updated_at = ? WHERE id = ?", (amount, amount, now, due_date_id))
             conn.execute("UPDATE invoices SET amount_paid = amount_paid + ?, amount_due = amount_due - ?, status = CASE WHEN amount_due - ? <= 0 THEN 'paid' ELSE 'partially_paid' END, updated_at = ? WHERE id = ?", (amount, amount, amount, now, invoice_id))
+            self._log(conn, "payment", payment_id, "register", f"invoice:{invoice_id}")
+            return payment_id
+
+    def mark_overdue_invoices(self, as_of_date: str) -> int:
+        now = self._now()
+        with self._conn() as conn:
+            cur_due = conn.execute(
+                "UPDATE invoice_due_dates SET status='overdue', updated_at=? WHERE status IN ('pending','partial') AND due_date < ?",
+                (now, as_of_date),
+            )
+            conn.execute(
+                "UPDATE invoices SET status='overdue', updated_at=? WHERE status IN ('pending_payment','partially_paid') AND due_date < ?",
+                (now, as_of_date),
+            )
+            return int(cur_due.rowcount)
+
+    def list_invoices_by_status(self) -> dict[str, list[dict[str, Any]]]:
+        result = {"pending": [], "overdue": [], "paid": []}
+        with self._conn() as conn:
+            pending_rows = conn.execute("SELECT id, full_number, customer_id, due_date, total, amount_due, status FROM invoices WHERE status IN ('pending_payment','partially_paid') ORDER BY due_date").fetchall()
+            overdue_rows = conn.execute("SELECT id, full_number, customer_id, due_date, total, amount_due, status FROM invoices WHERE status='overdue' ORDER BY due_date").fetchall()
+            paid_rows = conn.execute("SELECT id, full_number, customer_id, due_date, total, amount_due, status FROM invoices WHERE status='paid' ORDER BY due_date DESC").fetchall()
+            result["pending"] = [dict(r) for r in pending_rows]
+            result["overdue"] = [dict(r) for r in overdue_rows]
+            result["paid"] = [dict(r) for r in paid_rows]
+            return result
+
             return payment_id
 
     def pending_amount_by_customer(self, customer_id: int) -> float:
