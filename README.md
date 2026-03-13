@@ -125,5 +125,18 @@ cp ./backup/erp_YYYY-MM-DD_HHMMSS.sqlite3 ./var/erp.sqlite3
 - Existe una UI local usable en español (`desktop_ui/*`) conectada a backend+SQLite.
 - Queda pendiente empaquetar/validar esa UI dentro de shell Tauri completo en este entorno.
 - El núcleo de reglas de negocio y trazabilidad documental está implementado y validado con pruebas reales sobre SQLite.
+
+## Paquete Windows de prueba local
+
+Generar paquete ZIP:
+
+```bash
+./scripts/build_windows_test_package.sh
+```
+
+Salida esperada:
+- `dist/windows/erp_local_win.zip`
+
+> Nota: el instalador nativo Windows (MSI/NSIS) requiere toolchain objetivo Windows y red para descargar targets/dependencias.
 - El frontend React+Tauri está estructurado pero pendiente de bootstrap con registry npm/mirror disponible.
 - El núcleo de reglas de negocio y trazabilidad documental ya está implementado y validado con pruebas reales sobre SQLite.

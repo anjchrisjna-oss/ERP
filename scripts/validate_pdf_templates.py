@@ -33,6 +33,17 @@ TOKENS = [
 ]
 
 
+
+
+def check_reference_profile(errors: list[str]) -> None:
+    profile_path = ROOT / "pdf/config/reference_profile.json"
+    if not profile_path.exists():
+        errors.append("[reference] falta pdf/config/reference_profile.json (ejecuta scripts/prepare_pdf_reference_profile.py)")
+        return
+    data = json.loads(profile_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or "found" not in data:
+        errors.append("[reference] profile inválido")
+
 def validate() -> list[str]:
     errors: list[str] = []
     for name, cfg in REQUIRED.items():
@@ -65,6 +76,7 @@ def validate() -> list[str]:
                 if abs(total - 100.0) > 0.001:
                     errors.append(f"[{name}] suma de columnas debe ser 100 y es {total}")
 
+    check_reference_profile(errors)
     return errors
 
 
